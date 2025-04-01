@@ -13,11 +13,11 @@ module main(
     output reg LED_en
 );
 
-wire done, mins, secs, clk_5MHz, clk_1Hz, clk_200Hz, min_tens, min_ones, sec_tens, sec_ones;
-
+wire done, mins, secs, clk_5MHz, clk_1Hz, clk_500Hz;
 wire [11:0] count;
+reg [15:0] time_out;
 reg [11:0] count_in;
-reg [1:0] state, next_state;
+reg [1:0] state, next_state; 
 parameter INIT = 0, TCONFIG = 1, PAUSE = 2, RESUME = 3;
 
 //Clocking wizard
@@ -35,19 +35,25 @@ clock_divide_1Hz clock_1Hz(
     .clk_out(clk_1Hz)
 ); //1Hz
 
-clock_divide_200Hz clock_200Hz(
+clock_divide_500Hz clock_500Hz(
     .clk(clk_5MHz),
     .rst(rst),
-    .clk_out(clk_200Hz)
-); //200Hz
+    .clk_out(clk_500Hz)
+); //500Hz
 
 //BCD to time for 7-segment
 bcd_to_time converter(
     .count(count),
-    .min_tens(min_tens),
-    .min_ones(min_ones),
-    .sec_tens(sec_tens),
-    .sec_ones(sec_ones)
+    .time_out(time_out)
+);
+
+//BCD decoder and multiplexing
+bcd_to_7seg display(
+    .bcd(time_out),
+    .rst(rst),
+    .clk(clk_500Hz),
+    .seg(seg),
+    .an(an)
 );
 
 // Button debouncing

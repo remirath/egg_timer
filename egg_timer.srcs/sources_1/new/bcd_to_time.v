@@ -22,11 +22,13 @@
 
 module bcd_to_time(
     input [11:0] count,
-    output reg [2:0] min_tens,
-    output reg [3:0] min_ones,
-    output reg [2:0] sec_tens,
-    output reg [3:0] sec_ones
+    output [15:0] time_out
     );
+
+    reg [3:0] min_tens;
+    reg [3:0] min_ones;
+    reg [3:0] sec_tens;
+    reg [3:0] sec_ones;
     
     always @ (*) begin
         min_tens = (count / 600);
@@ -34,6 +36,8 @@ module bcd_to_time(
         
         sec_tens = (count % 60) / 10;
         sec_ones = (count % 60) % 10;
+
+        time_out = {min_tens, min_ones, sec_tens, sec_ones};
     end
     
     
