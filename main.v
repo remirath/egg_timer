@@ -1,4 +1,3 @@
-`include debounce.v
 
 module main(
     input cook_time, 
@@ -7,20 +6,49 @@ module main(
     input secs_raw, 
     input enable, 
     input rst, 
-    input clk,
-    output reg [7:0] seg, 
-    output reg [4:0] an, 
-    output LED_on, 
-    output LED_en
+    input clk,  
+    output reg [6:0] seg, 
+    output reg [3:0] an, 
+    output reg LED_on, 
+    output reg LED_en
 );
 
-wire done, mins, secs, clk_5MHz, clk_1Hz;
+wire done, mins, secs, clk_5MHz, clk_1Hz, clk_200Hz, min_tens, min_ones, sec_tens, sec_ones;
 
-wire reg [11:0] count_out;
+wire [11:0] count;
 reg [11:0] count_in;
 reg [1:0] state, next_state;
 parameter INIT = 0, TCONFIG = 1, PAUSE = 2, RESUME = 3;
 
+//Clocking wizard
+clk_wiz_0 clock_5MHz(
+    .clk_out1(clk_5MHz),
+    .reset(rst),
+    .locked(),
+    .clk_in1(clk)
+);
+
+//Clock division
+clock_divide_1Hz clock_1Hz(
+    .clk(clk_5MHz),
+    .rst(rst),
+    .clk_out(clk_1Hz)
+); //1Hz
+
+clock_divide_200Hz clock_200Hz(
+    .clk(clk_5MHz),
+    .rst(rst),
+    .clk_out(clk_200Hz)
+); //200Hz
+
+//BCD to time for 7-segment
+bcd_to_time converter(
+    .count(count),
+    .min_tens(min_tens),
+    .min_ones(min_ones),
+    .sec_tens(sec_tens),
+    .sec_ones(sec_ones)
+);
 
 // Button debouncing
 debounce mins_debounce( 
@@ -42,7 +70,7 @@ countdown_timer timer(
     .rst(rst),
     .start(start),
     .load_in(count_in),
-    .count_out(count_out),
+    .count_out(count),
     .done(done)
 );
 
@@ -53,13 +81,13 @@ always @ (state, cook_time, start) begin
             next_state = start ? PAUSE : INIT;
             if (cook_time) next_state = TCONFIG;
         end
-        tconfig: 
+        TCONFIG: 
             next_state = cook_time ? TCONFIG : PAUSE;
-        pause: begin
+        PAUSE: begin
             next_state = start ? RESUME : PAUSE;
             if (cook_time) next_state = TCONFIG;
         end
-        resume: begin
+        RESUME: begin
             next_state = done ? INIT : RESUME;
             if (cook_time) next_state = TCONFIG;
         end
@@ -69,10 +97,10 @@ always @ (state, cook_time, start) begin
 end
 
 //State Register
-always @ (posedge clk, posedge rst) begin
+always @ (posedge clk_5MHz, posedge rst) begin
     if (rst) begin
         state <= INIT;
-        count <= 0;
+        count_in <= 0;
     end
 
     else if (enable) state <= next_state;

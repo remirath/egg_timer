@@ -10,21 +10,21 @@ module countdown_timer(
     reg load, enable;     
     assign count_out = count;                                       
 
-    binary_counter counter (
-        .clk(clk),         
-        .reset(rst),         
-        .enable(enable),       
-        .load(load),           
-        .data_in(load_in),    
-        .count_out(count)      
+    c_counter_binary_0 counter (
+        .CLK(clk),         
+        .SCLR(rst),         
+        .CE(enable),       
+        .LOAD(load),           
+        .L(load_in),    
+        .Q(count)      
     );
 
     reg [1:0] state, next_state;
     parameter IDLE = 0, LOAD = 1, COUNT = 2;
 
     //State Register
-    always @ (posedge clk_1hz or posedge rst) begin
-        if (reset) state <= IDLE;
+    always @ (posedge clk or posedge rst) begin
+        if (rst) state <= IDLE;
         else state <= next_state;
     end
 
