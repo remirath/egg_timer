@@ -1,3 +1,10 @@
+`timescale 1ns / 1ps
+`include "debounce.v"
+`include "countdown_timer.v"
+`include "clock_divide_500Hz.v"
+`include "clock_divide_1Hz.v"
+`include "bcd_to_time.v"
+`include "bcd_to_7seg.v"
 
 module main(
     input cook_time, 
@@ -7,15 +14,16 @@ module main(
     input enable, 
     input rst, 
     input clk,  
-    output reg [6:0] seg, 
-    output reg [3:0] an, 
+    output wire [6:0] seg, 
+    output wire [3:0] an, 
     output reg LED_on, 
     output reg LED_en
 );
 
 wire done, mins, secs, clk_5MHz, clk_1Hz, clk_500Hz;
-wire [11:0] count;
-reg [15:0] time_out;
+reg timer_on;
+wire [11:0] count_out;
+wire [15:0] time_out;
 reg [11:0] count_in;
 reg [1:0] state, next_state; 
 parameter INIT = 0, TCONFIG = 1, PAUSE = 2, RESUME = 3;
@@ -43,7 +51,7 @@ clock_divide_500Hz clock_500Hz(
 
 //BCD to time for 7-segment
 bcd_to_time converter(
-    .count(count),
+    .count(count_out),
     .time_out(time_out)
 );
 
@@ -76,7 +84,7 @@ countdown_timer timer(
     .rst(rst),
     .start(start),
     .load_in(count_in),
-    .count_out(count),
+    .count_out(count_out),
     .done(done)
 );
 
@@ -84,11 +92,12 @@ countdown_timer timer(
 always @ (state, cook_time, start) begin
     case(state)
         INIT: begin
-            next_state = start ? PAUSE : INIT;
+            next_state = start ? START : INIT;
             if (cook_time) next_state = TCONFIG;
         end
-        TCONFIG: 
+        TCONFIG: begin
             next_state = cook_time ? TCONFIG : PAUSE;
+        end
         PAUSE: begin
             next_state = start ? RESUME : PAUSE;
             if (cook_time) next_state = TCONFIG;
@@ -107,6 +116,7 @@ always @ (posedge clk_5MHz, posedge rst) begin
     if (rst) begin
         state <= INIT;
         count_in <= 0;
+        timer_on <= 0;
     end
 
     else if (enable) state <= next_state;
@@ -114,9 +124,29 @@ always @ (posedge clk_5MHz, posedge rst) begin
 end
 
 //Output Calculations
-always @ (state, cook_time, start) begin
-    if (enable) LED_en = 1;
-    else if (&state) LED_on = 1;
+always @ (state, cook_time, start, mins, secs) begin
+    if (enable) LED_en <= 1;
+    else LED_en <= 0;
+    case(state)
+        INIT: begin 
+            LED_on <= 0;
+            timer_on <= 0;
+        end
+        TCONFIG: begin
+            LED_on <= 0;
+            timer_on <= 0;
+            if (mins) count_in <= count_in + 60;
+            else if (secs) count_in <= count_in + 1;
+        end
+        PAUSE: begin 
+            LED_on <= 0;
+            timer_on <= 0;
+        end
+        RESUME: begin
+            LED_on <= 1;
+            timer_on <= 0;
+        end
+    endcase
 end
 
 
